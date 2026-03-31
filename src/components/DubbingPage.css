@@ -117,7 +117,7 @@
 }
 .shell .card-title { font-size: 24px; font-weight: 700; color: #111; line-height: 1.2; letter-spacing: -0.02em; }
 .shell .card-sub   { font-size: 15px; color: #666; margin-top: 4px; line-height: 1.2; font-weight: 500; }
-.shell .card-desc  { font-size: 16px; color: #444; line-height: 1.6; margin-bottom: 2.5rem; flex-grow: 1; }
+.shell .card-desc  { font-size: 16px; color: #444; line-height: 1.6; margin-bottom: 2.5rem; }
 
 /* Upload zone */
 .shell .upload-zone {
@@ -125,7 +125,6 @@
   border-radius: 12px;
   padding: 3rem 2rem;
   text-align: center;
-  margin-bottom: 1.5rem;
   cursor: pointer;
   background: #fafafa;
   transition: background 0.2s, border-color 0.2s;
@@ -134,14 +133,94 @@
   background: #f0f0f0;
   border-color: rgba(0,0,0,0.3);
 }
+.shell .upload-zone.drag-active {
+  background: #eef2ff;
+  border-color: #534AB7;
+}
 .shell .upload-zone .uz-title { font-size: 15px; font-weight: 600; color: #222; display: block; margin-bottom: 8px; }
 .shell .upload-zone .uz-sub   { font-size: 13px; color: #777; }
 .shell .upload-icon { width: 36px; height: 36px; margin: 0 auto 12px; opacity: 0.4; display: block; }
+
+/* Selected Media Box */
+.shell .selected-media-box {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.shell .media-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid #f1f5f9;
+}
+.shell .media-item:last-child {
+  padding-bottom: 0;
+  border-bottom: none;
+}
+
+.shell .media-label {
+  font-size: 14px;
+  font-weight: 600;
+  color: #475569;
+}
+
+.shell .media-name {
+  font-size: 14px;
+  color: #0f172a;
+  font-family: monospace;
+  background: #fff;
+  padding: 4px 8px;
+  border-radius: 6px;
+  border: 1px solid #e2e8f0;
+  max-width: 200px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Audio Preview Block */
+.shell .audio-preview-block {
+  margin-top: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 1.5rem;
+}
+
+.shell .audio-preview-label {
+  font-size: 14px;
+  font-weight: 600;
+  color: #444;
+}
+
+/* Utilities */
+.shell .btn-sm {
+  font-size: 12px;
+  padding: 6px 12px;
+}
+.shell .error-box {
+  color: #ef4444;
+  font-size: 14px;
+  margin-bottom: 1rem;
+  padding: 12px;
+  background: rgba(239, 68, 68, 0.1);
+  border-radius: 8px;
+}
+
 
 /* Select row */
 .shell .row { display: flex; gap: 12px; margin-bottom: 1.5rem; }
 .shell .sel {
   flex: 1;
+  min-width: 0;
+  text-overflow: ellipsis;
+  overflow: hidden;
   font-size: 14px;
   font-weight: 500;
   padding: 10px 14px;
@@ -154,7 +233,7 @@
 }
 
 /* Chips */
-.shell .chips { display: flex; gap: 8px; flex-wrap: wrap; margin-top: auto; }
+.shell .chips { display: none; gap: 8px; flex-wrap: wrap; margin-top: auto; }
 .shell .chip {
   font-size: 12px;
   padding: 6px 14px;
@@ -236,8 +315,14 @@
   font-family: monospace; font-size: 12px; color: #777;
 }
 .shell .segment-text {
-  width: 100%; border: none; background: transparent; resize: none;
-  font-family: inherit; font-size: 14px; color: #333; outline: none; line-height: 1.4;
+  width: 100%; border: 1px solid #cbd5e1; background: #fff; resize: vertical;
+  font-family: inherit; font-size: 14px; color: #333; outline: none; line-height: 1.5;
+  padding: 8px 10px; border-radius: 6px;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+.shell .segment-text:focus {
+  border-color: #534AB7;
+  box-shadow: 0 0 0 3px rgba(83, 74, 183, 0.15);
 }
 .shell .segments-list::-webkit-scrollbar { width: 4px; }
 .shell .segments-list::-webkit-scrollbar-track { background: transparent; }

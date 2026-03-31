@@ -1,8 +1,11 @@
 import { useState } from 'react';
 import { DubbingPage } from './components/DubbingPage';
+import { TTSPage } from './components/TTSPage';
+import { STTPage } from './components/STTPage';
+import { ConvertPage } from './components/ConvertPage';
 import './App.css';
 
-type AppTab = 'tts' | 'stt' | 'dub';
+type AppTab = 'tts' | 'stt' | 'dub' | 'convert';
 
 function App() {
   const [activeTab, setActiveTab] = useState<AppTab>('dub');
@@ -11,7 +14,7 @@ function App() {
     <div className="app-root">
       {/* Non-intrusive floating navigation */}
       <nav className="main-nav">
-        <button 
+        <button
           className={`nav-item ${activeTab === 'dub' ? 'active' : ''}`}
           onClick={() => setActiveTab('dub')}
           data-tooltip="Dub Video"
@@ -21,7 +24,7 @@ function App() {
             <rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect>
           </svg>
         </button>
-        <button 
+        <button
           className={`nav-item ${activeTab === 'tts' ? 'active' : ''}`}
           onClick={() => setActiveTab('tts')}
           data-tooltip="Text to Speech"
@@ -33,7 +36,7 @@ function App() {
             <line x1="8" y1="23" x2="16" y2="23"></line>
           </svg>
         </button>
-        <button 
+        <button
           className={`nav-item ${activeTab === 'stt' ? 'active' : ''}`}
           onClick={() => setActiveTab('stt')}
           data-tooltip="Speech to Text"
@@ -46,23 +49,27 @@ function App() {
             <polyline points="10 9 9 9 8 9"></polyline>
           </svg>
         </button>
+        <button
+          className={`nav-item ${activeTab === 'convert' ? 'active' : ''}`}
+          onClick={() => setActiveTab('convert')}
+          data-tooltip="Convert"
+          style={activeTab === 'convert' ? { background: 'rgba(22,163,74,0.15)', color: '#16a34a', boxShadow: 'inset 0 0 0 1px rgba(22,163,74,0.5)' } : {}}
+        >
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M4 12v-2a8 8 0 0 1 16 0"></path>
+            <path d="M20 12v2a8 8 0 0 1-16 0"></path>
+            <polyline points="4 8 4 12 8 12"></polyline>
+            <polyline points="20 16 20 12 16 12"></polyline>
+          </svg>
+        </button>
       </nav>
 
       {/* Main Content Area */}
       <main className="main-content">
-        {activeTab === 'dub' && <DubbingPage />}
-        {activeTab === 'tts' && (
-          <div className="placeholder-page">
-            <h2>Text to Speech</h2>
-            <p>Module integration coming soon...</p>
-          </div>
-        )}
-        {activeTab === 'stt' && (
-          <div className="placeholder-page">
-            <h2>Speech to Text</h2>
-            <p>Module integration coming soon...</p>
-          </div>
-        )}
+        {activeTab === 'dub'     && <DubbingPage />}
+        {activeTab === 'tts'     && <TTSPage />}
+        {activeTab === 'stt'     && <STTPage />}
+        {activeTab === 'convert' && <ConvertPage />}
       </main>
     </div>
   );

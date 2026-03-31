@@ -1,0 +1,180 @@
+/* STTPage – extends TTSPage shared base (standalone-page, standalone-shell, standalone-card) */
+
+/* Make the STT card a bit taller to fit results */
+.stt-shell {
+  height: 680px;
+  max-height: 86vh;
+}
+
+/* ---------- Upload zone ---------- */
+.stt-upload-zone {
+  border: 2px dashed rgba(0, 0, 0, 0.15);
+  border-radius: 12px;
+  padding: 2.5rem 2rem;
+  text-align: center;
+  cursor: pointer;
+  background: #fafafa;
+  transition: background 0.2s, border-color 0.2s;
+  margin-bottom: 1.25rem;
+  flex-shrink: 0;
+}
+
+.stt-upload-zone:hover {
+  background: #f0f0f0;
+  border-color: rgba(0, 0, 0, 0.3);
+}
+
+.stt-upload-zone.drag-active {
+  background: #EBF4FF;
+  border-color: #185FA5;
+}
+
+.stt-upload-zone .uz-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: #222;
+  display: block;
+  margin-bottom: 6px;
+}
+
+.stt-upload-zone .uz-sub {
+  font-size: 13px;
+  color: #777;
+}
+
+.upload-icon {
+  width: 36px;
+  height: 36px;
+  margin: 0 auto 12px;
+  opacity: 0.4;
+  display: block;
+}
+
+/* ---------- File box ---------- */
+.stt-file-box {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 1rem;
+  margin-bottom: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.stt-file-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.stt-file-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.stt-file-name {
+  font-size: 14px;
+  color: #0f172a;
+  font-family: monospace;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 220px;
+}
+
+/* ---------- Progress (STT accent colour = blue) ---------- */
+.standalone-card .pbar {
+  height: 8px;
+  background: #eee;
+  border-radius: 4px;
+  margin-bottom: 8px;
+  overflow: hidden;
+  position: relative;
+}
+
+.pfill.stt-fill {
+  background: #185FA5;
+}
+
+.pfill.indeterminate {
+  width: 40% !important;
+  animation: pbar-indeterminate 1.5s ease-in-out infinite;
+}
+
+@keyframes pbar-indeterminate {
+  0%   { margin-left: -40%; width: 40%; }
+  50%  { margin-left: 20%;  width: 60%; }
+  100% { margin-left: 100%; width: 40%; }
+}
+
+/* ---------- Results panel ---------- */
+.stt-results {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  margin-top: 1rem;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.stt-results-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid #e2e8f0;
+  flex-shrink: 0;
+}
+
+.stt-results-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #444;
+}
+
+.stt-segments {
+  overflow-y: auto;
+  flex: 1;
+  padding: 0.75rem 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.stt-segments::-webkit-scrollbar { width: 4px; }
+.stt-segments::-webkit-scrollbar-track { background: transparent; }
+.stt-segments::-webkit-scrollbar-thumb { background: #ccc; border-radius: 2px; }
+
+.stt-segment {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.stt-seg-time {
+  font-family: monospace;
+  font-size: 11px;
+  color: #888;
+}
+
+.stt-seg-text {
+  font-size: 14px;
+  color: #222;
+  line-height: 1.5;
+  margin: 0;
+}
+
+/* ---------- STT primary button accent ---------- */
+.standalone-card .btn-p.stt-btn {
+  border-color: #185FA5;
+  color: #185FA5;
+  background: #E6F1FB;
+}

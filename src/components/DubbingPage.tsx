@@ -5,8 +5,7 @@ import { useVoices } from '../hooks/useVoices';
 import './DubbingPage.css';
 
 const LABELS = [
-  "Upload video",
-  "Audio extraction",
+  "Upload & Extract",
   "Speech to text",
   "Translate",
   "Text to speech",
@@ -20,11 +19,20 @@ export function DubbingPage() {
   const [cur, setCur] = useState(0);
   const total = LABELS.length;
   const vpRef = useRef<HTMLDivElement>(null);
+
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const audioInputRef = useRef<HTMLInputElement>(null);
+  const replaceAudioInputRef = useRef<HTMLInputElement>(null);
 
   const [startX, setStartX] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
   const [isDraggingFile, setIsDraggingFile] = useState(false);
+
+  const [pendingVideo, setPendingVideo] = useState<File | null>(null);
+  const [pendingAudio, setPendingAudio] = useState<File | null>(null);
+
+  // --- Translate State ---
+  const [targetLang, setTargetLang] = useState<string>('es');
 
   // --- TTS State ---
   const [ttsLang, setTtsLang] = useState<string>('en_US');
@@ -59,23 +67,52 @@ export function DubbingPage() {
     setIsDraggingFile(false);
     const file = e.dataTransfer.files?.[0];
     if (file && file.type.startsWith('video/')) {
-      dubbing.uploadAndExtract(file);
-      setCur(1);
+      setPendingVideo(file);
     }
-  }, [dubbing]);
+  }, []);
 
   const handleFileChange = useCallback((e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
-      dubbing.uploadAndExtract(file);
-      setCur(1);
-    }
+    if (file) setPendingVideo(file);
     if (fileInputRef.current) fileInputRef.current.value = '';
+  }, []);
+
+  const handleAudioChange = useCallback((e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file && file.type.startsWith('audio/')) {
+      setPendingAudio(file);
+    }
+    if (audioInputRef.current) audioInputRef.current.value = '';
+  }, []);
+
+  const handleClickUpload = useCallback(() => fileInputRef.current?.click(), []);
+  const handleClickAudioUpload = useCallback(() => audioInputRef.current?.click(), []);
+
+  const handleClickReplaceAudio = useCallback(() => {
+    if (window.confirm("Warning: The audio you are replacing will overwrite the audio we extracted from your video earlier. Are you sure you want to replace it?")) {
+      replaceAudioInputRef.current?.click();
+    }
+  }, []);
+
+  const handleReplaceAudioChange = useCallback((e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file && file.type.startsWith('audio/')) {
+      dubbing.replaceAudio(file);
+    }
+    if (replaceAudioInputRef.current) replaceAudioInputRef.current.value = '';
   }, [dubbing]);
 
-  const handleClickUpload = useCallback(() => {
-    fileInputRef.current?.click();
-  }, []);
+  const handleProcessMedia = useCallback(() => {
+    if (pendingVideo) {
+      dubbing.uploadAndExtract(pendingVideo, pendingAudio || undefined);
+    }
+  }, [dubbing, pendingVideo, pendingAudio]);
+
+  const handleResetMedia = useCallback(() => {
+    setPendingVideo(null);
+    setPendingAudio(null);
+    dubbing.reset();
+  }, [dubbing]);
 
   // Navigation
   const go = (dir: number) => {
@@ -171,9 +208,9 @@ export function DubbingPage() {
           onMouseLeave={handleMouseLeave}
         >
           <div className="track">
-            {/* Stage 0: Upload video */}
-            <div 
-              className="slide" 
+            {/* Stage 0: Upload & Extract */}
+            <div
+              className="slide"
               style={getSlideStyle(0)}
               onClick={() => handleSlideClick(0)}
             >
@@ -181,121 +218,136 @@ export function DubbingPage() {
                 <div className="card-head">
                   <div className="card-icon" style={{ background: '#EEEDFE' }}>
                     <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                      <rect x="2" y="3" width="12" height="10" rx="1.5" stroke="#534AB7" strokeWidth="1.2" fill="none"/>
-                      <path d="M6 6l4 2-4 2V6z" fill="#534AB7"/>
+                      <rect x="2" y="3" width="12" height="10" rx="1.5" stroke="#534AB7" strokeWidth="1.2" fill="none" />
+                      <path d="M6 6l4 2-4 2V6z" fill="#534AB7" />
                     </svg>
                   </div>
                   <div>
-                    <div className="card-title">Upload video</div>
-                    <div className="card-sub">Source file input</div>
+                    <div className="card-title">Upload & Extract</div>
+                    <div className="card-sub">Input Media</div>
                   </div>
                 </div>
-                <div className="card-desc">Upload the source video you want to dub. We'll extract audio and process it through the pipeline.</div>
-                
-                <input 
-                  type="file" 
-                  accept="video/*" 
-                  ref={fileInputRef} 
-                  style={{ display: 'none' }} 
-                  onChange={handleFileChange} 
-                />
-                <div 
-                  className={`upload-zone ${isDraggingFile ? 'drag-active' : ''}`}
-                  onDragOver={handleDragOver}
-                  onDragLeave={handleDragLeave}
-                  onDrop={handleDrop}
-                  onClick={handleClickUpload}
-                >
-                  <svg className="upload-icon" viewBox="0 0 28 28" fill="none">
-                    <path d="M14 18V10M10 14l4-4 4 4" stroke="#333" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
-                    <rect x="3" y="3" width="22" height="22" rx="4" stroke="#333" strokeWidth="1.2"/>
-                  </svg>
-                  <span className="uz-title">Drop video file here</span>
-                  <span className="uz-sub">MP4, MOV, AVI, MKV · Max 2 GB</span>
-                </div>
-                <div>
-                  <span className="btn-p" onClick={handleClickUpload}>Browse files</span>
-                </div>
-                <div className="chips">
-                  <span className="chip">MP4</span>
-                  <span className="chip">MOV</span>
-                  <span className="chip">AVI</span>
-                  <span className="chip">MKV</span>
-                </div>
+                <div className="card-desc">Provide your video and an optional custom audio track for us to use. We'll set up your timeline and transcript.</div>
+
+                <input type="file" accept="video/*" ref={fileInputRef} style={{ display: 'none' }} onChange={handleFileChange} />
+                <input type="file" accept="audio/*" ref={audioInputRef} style={{ display: 'none' }} onChange={handleAudioChange} />
+
+                {dubbing.step === 'idle' ? (
+                  <>
+                    <div className="upload-media-container" style={{ flexGrow: 1, display: 'flex', flexDirection: 'column' }}>
+                      {!pendingVideo ? (
+                        <div
+                          className={`upload-zone ${isDraggingFile ? 'drag-active' : ''}`}
+                          onDragOver={handleDragOver}
+                          onDragLeave={handleDragLeave}
+                          onDrop={handleDrop}
+                          onClick={handleClickUpload}
+                          style={{ flexGrow: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}
+                        >
+                          <svg className="upload-icon" viewBox="0 0 28 28" fill="none">
+                            <path d="M14 18V10M10 14l4-4 4 4" stroke="#333" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+                            <rect x="3" y="3" width="22" height="22" rx="4" stroke="#333" strokeWidth="1.2" />
+                          </svg>
+                          <span className="uz-title">Drop video file here</span>
+                          <span className="uz-sub">MP4, MOV, AVI, MKV · Max 2 GB</span>
+                        </div>
+                      ) : (
+                        <div className="selected-media-box">
+                          <div className="media-item">
+                            <span className="media-label">Video</span>
+                            <span className="media-name">{pendingVideo.name}</span>
+                          </div>
+                          <div className="media-item">
+                            <span className="media-label">Audio (optional)</span>
+                            {pendingAudio ? (
+                              <span className="media-name">{pendingAudio.name}</span>
+                            ) : (
+                              <button className="btn-g btn-sm" onClick={handleClickAudioUpload}>
+                                + Add custom audio
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    {dubbing.error && (
+                      <div className="error-box" style={{ marginTop: '1rem' }}>
+                        {dubbing.error}
+                      </div>
+                    )}
+
+                    <div style={{ marginTop: 'auto', display: 'flex', gap: '8px', paddingTop: '1rem' }}>
+                      <button
+                        className="btn-p"
+                        onClick={pendingVideo ? handleProcessMedia : handleClickUpload}
+                        style={{ flex: 1 }}
+                      >
+                        {pendingVideo ? 'Process Media' : 'Browse videos'}
+                      </button>
+                      {pendingVideo && (
+                        <button className="btn-g" onClick={handleResetMedia}>
+                          Cancel
+                        </button>
+                      )}
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    {/* Progress and Audio Review Block */}
+                    {(dubbing.step === 'extracting' || dubbing.step === 'review_audio' || dubbing.progress > 0) && (
+                      <div className="processing-block">
+                        <div className="pbar">
+                          <div className="pfill" style={{ width: `${dubbing.progress}%` }}></div>
+                        </div>
+                        <p className="plabel">
+                          {dubbing.step === 'extracting' ? dubbing.progressLabel || 'Processing...' : 'Media ready! Review before continuing.'}
+                        </p>
+                      </div>
+                    )}
+
+                    {dubbing.error && dubbing.step === 'extracting' && (
+                      <div className="error-box">
+                        {dubbing.error}
+                      </div>
+                    )}
+
+                    {dubbing.extractedAudioUrl && (
+                      <div className="audio-preview-block">
+                        <span className="audio-preview-label">Audio Track Preview</span>
+                        <audio controls src={dubbing.extractedAudioUrl} style={{ width: '100%', height: '40px' }} />
+                      </div>
+                    )}
+
+                    <div style={{ marginTop: 'auto', display: 'flex', gap: '8px' }}>
+                      {dubbing.step === 'review_audio' ? (
+                        <span className="btn-p" style={{ flex: 1 }} onClick={() => setCur(1)}>Continue to STT</span>
+                      ) : (
+                        <span className="btn-p" style={{ flex: 1, opacity: 0.5 }}>Process Media</span>
+                      )}
+
+                      {dubbing.step === 'review_audio' && (
+                        <button className="btn-g" onClick={handleResetMedia}>Start Over</button>
+                      )}
+                    </div>
+                  </>
+                )}
+
               </div>
             </div>
 
-            {/* Stage 1: Audio extraction */}
-            <div 
-              className="slide" 
+            {/* Stage 1: Speech to text */}
+            <div
+              className="slide"
               style={getSlideStyle(1)}
               onClick={() => handleSlideClick(1)}
             >
               <div className="card">
                 <div className="card-head">
-                  <div className="card-icon" style={{ background: '#E1F5EE' }}>
-                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                      <path d="M8 2v12M4 5v6M12 5v6M2 8h2M12 8h2" stroke="#0F6E56" strokeWidth="1.2" strokeLinecap="round"/>
-                    </svg>
-                  </div>
-                  <div>
-                    <div className="card-title">Audio extraction</div>
-                    <div className="card-sub">Strip audio track</div>
-                  </div>
-                </div>
-                <div className="card-desc">Isolate the original audio track from your video. This becomes the source for transcription.</div>
-                
-                {(dubbing.step === 'idle' || dubbing.step === 'extracting' || dubbing.step === 'review_audio' || dubbing.progress > 0) && (
-                  <div>
-                    <div className="pbar">
-                      <div className="pfill" style={{ width: `${dubbing.step === 'idle' ? 0 : dubbing.progress}%` }}></div>
-                    </div>
-                    <p className="plabel">
-                      {dubbing.step === 'idle' ? 'Waiting for video upload...' :
-                       dubbing.step === 'extracting' ? dubbing.progressLabel || 'Extracting...' :
-                       'Extraction complete'}
-                    </p>
-                    {dubbing.step === 'review_audio' ? (
-                      <span className="btn-p" onClick={() => setCur(2)}>Continue to STT</span>
-                    ) : (
-                      <span className="btn-p" style={{ opacity: 0.5 }}>Extract audio</span>
-                    )}
-                  </div>
-                )}
-
-                {dubbing.error && (dubbing.step === 'idle' || dubbing.step === 'extracting') && (
-                  <div style={{ color: '#ef4444', fontSize: '14px', marginBottom: '1rem', padding: '12px', background: 'rgba(239, 68, 68, 0.1)', borderRadius: '8px' }}>
-                    {dubbing.error}
-                  </div>
-                )}
-
-                {dubbing.extractedAudioUrl && (
-                  <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                    <span style={{ fontSize: '14px', fontWeight: 600, color: '#444' }}>Audio Track Preview</span>
-                    <audio controls src={dubbing.extractedAudioUrl} style={{ width: '100%', height: '40px' }} />
-                  </div>
-                )}
-
-                <div className="chips" style={{ marginTop: dubbing.extractedAudioUrl ? '1rem' : 'auto' }}>
-                  <span className="chip">WAV output</span>
-                  <span className="chip">Stereo / mono</span>
-                  <span className="chip">Auto-trim</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Stage 2: Speech to text */}
-            <div 
-              className="slide" 
-              style={getSlideStyle(2)}
-              onClick={() => handleSlideClick(2)}
-            >
-              <div className="card">
-                <div className="card-head">
                   <div className="card-icon" style={{ background: '#E6F1FB' }}>
                     <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                      <path d="M3 5h7M3 8h5M3 11h8" stroke="#185FA5" strokeWidth="1.2" strokeLinecap="round"/>
-                      <path d="M12 7v5M10 10l2 2 2-2" stroke="#185FA5" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/>
+                      <path d="M3 5h7M3 8h5M3 11h8" stroke="#185FA5" strokeWidth="1.2" strokeLinecap="round" />
+                      <path d="M12 7v5M10 10l2 2 2-2" stroke="#185FA5" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
                     </svg>
                   </div>
                   <div>
@@ -303,27 +355,41 @@ export function DubbingPage() {
                     <div className="card-sub">Transcribe audio</div>
                   </div>
                 </div>
-                <div className="card-desc">Transcribe the extracted audio into a timestamped text transcript. Auto-detect or select the source language.</div>
-                
+                <div className="card-desc">Transcribe the extracted audio into a timestamped text transcript. Only Supports English since these client side models are too heavy.</div>
+
+                <input type="file" accept="audio/*" ref={replaceAudioInputRef} style={{ display: 'none' }} onChange={handleReplaceAudioChange} />
+
+                {dubbing.extractedAudioUrl && ['idle', 'extracting', 'review_audio', 'transcribing'].includes(dubbing.step) && (
+                  <div className="audio-preview-block" style={{ marginBottom: '1.5rem', marginTop: 0 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                      <span className="audio-preview-label">Source Audio</span>
+                      <button className="btn-g btn-sm" onClick={handleClickReplaceAudio} disabled={dubbing.step === 'transcribing'} style={{ padding: '4px 10px' }}>
+                        Replace audio
+                      </button>
+                    </div>
+                    <audio controls src={dubbing.extractedAudioUrl} style={{ width: '100%', height: '40px' }} />
+                  </div>
+                )}
+
                 {['idle', 'extracting', 'review_audio', 'transcribing'].includes(dubbing.step) ? (
                   <>
                     <div style={{ marginBottom: '1.5rem', opacity: dubbing.step !== 'transcribing' ? 0.5 : 1 }}>
                       <div className="pbar">
-                        <div 
-                          className={`pfill ${dubbing.whisperPhase === 'transcribing' ? 'indeterminate' : ''}`} 
+                        <div
+                          className={`pfill ${dubbing.whisperPhase === 'transcribing' ? 'indeterminate' : ''}`}
                           style={{ width: dubbing.whisperPhase === 'transcribing' ? undefined : `${dubbing.step === 'transcribing' ? dubbing.whisperProgress : 0}%` }}
                         ></div>
                       </div>
                       <p className="plabel">
-                        {dubbing.step === 'transcribing' 
-                          ? dubbing.progressLabel || 'Loading Whisper model...' 
+                        {dubbing.step === 'transcribing'
+                          ? dubbing.progressLabel || 'Loading Whisper model...'
                           : 'Waiting to start transcription'}
                       </p>
                     </div>
 
                     <div style={{ pointerEvents: dubbing.step === 'transcribing' ? 'none' : 'auto' }}>
-                      <span 
-                        className="btn-p" 
+                      <span
+                        className="btn-p"
                         onClick={dubbing.startTranscription}
                         style={{ opacity: dubbing.step === 'transcribing' ? 0.5 : 1 }}
                       >
@@ -345,7 +411,7 @@ export function DubbingPage() {
                           <div className="segment-header">
                             <span className="segment-time">{seg.startTime.toFixed(1)}s - {seg.endTime.toFixed(1)}s</span>
                           </div>
-                          <textarea 
+                          <textarea
                             className="segment-text"
                             value={seg.text}
                             onChange={(e) => dubbing.updateSegmentText(seg.id, e.target.value)}
@@ -355,24 +421,24 @@ export function DubbingPage() {
                       ))}
                     </div>
                     <div>
-                      <span className="btn-p" onClick={() => setCur(3)}>Continue to Translate</span>
+                      <span className="btn-p" onClick={() => setCur(2)}>Continue to Translate</span>
                     </div>
                   </>
                 )}
               </div>
             </div>
 
-            {/* Stage 3: Translate */}
-            <div 
-              className="slide" 
-              style={getSlideStyle(3)}
-              onClick={() => handleSlideClick(3)}
+            {/* Stage 2: Translate */}
+            <div
+              className="slide"
+              style={getSlideStyle(2)}
+              onClick={() => handleSlideClick(2)}
             >
               <div className="card">
                 <div className="card-head">
                   <div className="card-icon" style={{ background: '#FAEEDA' }}>
                     <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                      <path d="M2 8h4M10 8h4M6 5l-2 3 2 3M10 5l2 3-2 3" stroke="#854F0B" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/>
+                      <path d="M2 8h4M10 8h4M6 5l-2 3 2 3M10 5l2 3-2 3" stroke="#854F0B" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
                     </svg>
                   </div>
                   <div>
@@ -380,9 +446,33 @@ export function DubbingPage() {
                     <div className="card-sub">Target language</div>
                   </div>
                 </div>
-                <div className="card-desc">Provide manual translations for each segment, or skip to use the original transcript for Voiceover generation.</div>
-                
-                <div className="segments-list" style={{ marginTop: '0.5rem', maxHeight: '300px' }}>
+                <div className="card-desc" style={{ marginBottom: '1rem' }}>Provide manual translations for each segment, use auto-translate, or skip to use the original transcript.</div>
+
+                <div className="row" style={{ marginTop: '0', marginBottom: '1rem', alignItems: 'center' }}>
+                  <select className="sel" value={targetLang} onChange={e => setTargetLang(e.target.value)} disabled={dubbing.isTranslating}>
+                    <option value="es">Spanish</option>
+                    <option value="fr">French</option>
+                    <option value="de">German</option>
+                    <option value="it">Italian</option>
+                    <option value="pt">Portuguese</option>
+                    <option value="ja">Japanese</option>
+                    <option value="ko">Korean</option>
+                    <option value="zh-CN">Chinese (Simplified)</option>
+                    <option value="hi">Hindi</option>
+                    <option value="ar">Arabic</option>
+                    <option value="ru">Russian</option>
+                  </select>
+                  <button
+                    className="btn-p btn-sm"
+                    onClick={() => dubbing.autoTranslate(targetLang)}
+                    disabled={dubbing.isTranslating || dubbing.segments.length === 0}
+                    style={{ flex: 1 }}
+                  >
+                    {dubbing.isTranslating ? `Translating ${dubbing.translationProgress}%...` : 'Auto-translate'}
+                  </button>
+                </div>
+
+                <div className="segments-list" style={{ marginTop: '0', maxHeight: '300px' }}>
                   {dubbing.segments.map(seg => (
                     <div key={seg.id} className="segment-item" style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                       <div className="segment-header" style={{ marginBottom: 0 }}>
@@ -391,7 +481,7 @@ export function DubbingPage() {
                       <div style={{ padding: '8px', background: '#f5f5f5', borderRadius: '8px', fontSize: '13px', color: '#555' }}>
                         {seg.text}
                       </div>
-                      <textarea 
+                      <textarea
                         className="segment-text"
                         placeholder="Enter translation (optional)..."
                         value={seg.translatedText || ''}
@@ -404,8 +494,8 @@ export function DubbingPage() {
                 </div>
 
                 <div style={{ marginTop: 'auto', display: 'flex', gap: '12px', alignItems: 'center' }}>
-                  <span className="btn-p" onClick={() => setCur(4)}>Continue to TTS</span>
-                  <span className="btn-g" onClick={() => setCur(4)} style={{ fontSize: '13px' }}>Skip (Use Original)</span>
+                  <span className="btn-p" onClick={() => setCur(3)}>Continue to TTS</span>
+                  <span className="btn-g" onClick={() => setCur(3)} style={{ fontSize: '13px' }}>Skip (Use Original)</span>
                 </div>
 
                 <div className="chips">
@@ -415,18 +505,18 @@ export function DubbingPage() {
               </div>
             </div>
 
-            {/* Stage 4: Text to speech */}
-            <div 
-              className="slide" 
-              style={getSlideStyle(4)}
-              onClick={() => handleSlideClick(4)}
+            {/* Stage 3: Text to speech */}
+            <div
+              className="slide"
+              style={getSlideStyle(3)}
+              onClick={() => handleSlideClick(3)}
             >
               <div className="card">
                 <div className="card-head">
                   <div className="card-icon" style={{ background: '#FAECE7' }}>
                     <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                      <circle cx="8" cy="7" r="3" stroke="#993C1D" strokeWidth="1.2" fill="none"/>
-                      <path d="M5 12.5c0-1.66 1.34-3 3-3s3 1.34 3 3" stroke="#993C1D" strokeWidth="1.2" strokeLinecap="round"/>
+                      <circle cx="8" cy="7" r="3" stroke="#993C1D" strokeWidth="1.2" fill="none" />
+                      <path d="M5 12.5c0-1.66 1.34-3 3-3s3 1.34 3 3" stroke="#993C1D" strokeWidth="1.2" strokeLinecap="round" />
                     </svg>
                   </div>
                   <div>
@@ -435,7 +525,7 @@ export function DubbingPage() {
                   </div>
                 </div>
                 <div className="card-desc">Convert the translated text into a natural-sounding voiceover using your chosen voice model.</div>
-                
+
                 {['idle', 'extracting', 'review_audio', 'transcribing', 'editing'].includes(dubbing.step) ? (
                   <>
                     <div className="row" style={{ marginTop: '0.5rem' }}>
@@ -451,8 +541,8 @@ export function DubbingPage() {
                       </select>
                     </div>
                     <div>
-                      <span 
-                        className="btn-p" 
+                      <span
+                        className="btn-p"
                         onClick={handleGenerateTTS}
                         style={{ opacity: !ttsVoice ? 0.5 : 1, pointerEvents: !ttsVoice ? 'none' : 'auto' }}
                       >
@@ -474,7 +564,7 @@ export function DubbingPage() {
                         <p className="plabel">{dubbing.progressLabel || 'Synthesizing voiceovers...'}</p>
                       </div>
                     )}
-                    
+
                     <div className="segments-list" style={{ marginTop: '0.5rem', maxHeight: '250px' }}>
                       {dubbing.segments.filter(s => (s.translatedText || s.text).trim()).map(seg => (
                         <div key={seg.id} className="segment-item" style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
@@ -494,7 +584,7 @@ export function DubbingPage() {
                     <div style={{ marginTop: 'auto', display: 'flex', gap: '12px', alignItems: 'center' }}>
                       {dubbing.step !== 'synthesizing' && (
                         <>
-                          <span className="btn-p" onClick={() => setCur(5)}>Continue to Stitching</span>
+                          <span className="btn-p" onClick={() => setCur(4)}>Continue to Stitching</span>
                           <span className="btn-g" onClick={dubbing.backToEditing} style={{ fontSize: '13px' }}>Re-edit Text</span>
                         </>
                       )}
@@ -504,17 +594,17 @@ export function DubbingPage() {
               </div>
             </div>
 
-            {/* Stage 5: Stitch */}
-            <div 
-              className="slide" 
-              style={getSlideStyle(5)}
-              onClick={() => handleSlideClick(5)}
+            {/* Stage 4: Stitch */}
+            <div
+              className="slide"
+              style={getSlideStyle(4)}
+              onClick={() => handleSlideClick(4)}
             >
               <div className="card">
                 <div className="card-head">
                   <div className="card-icon" style={{ background: '#FBEAF0' }}>
                     <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                      <path d="M2 8h3l2-4 2 8 2-4h3" stroke="#993556" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
+                      <path d="M2 8h3l2-4 2 8 2-4h3" stroke="#993556" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" fill="none" />
                     </svg>
                   </div>
                   <div>
@@ -523,25 +613,25 @@ export function DubbingPage() {
                   </div>
                 </div>
                 <div className="card-desc">Align the voiceover segments to the video timeline. Auto-sync or fine-tune offsets manually.</div>
-                
+
                 {['idle', 'extracting', 'review_audio', 'transcribing', 'editing', 'synthesizing', 'review_synthesis', 'stitching'].includes(dubbing.step) ? (
                   <>
                     <div style={{ marginBottom: '1.5rem' }}>
                       <div className="pbar">
-                        <div 
-                          className="pfill" 
+                        <div
+                          className="pfill"
                           style={{ width: `${dubbing.step === 'stitching' ? dubbing.progress : 0}%` }}
                         ></div>
                       </div>
                       <p className="plabel">
-                        {dubbing.step === 'stitching' 
-                          ? dubbing.progressLabel || 'Stitching audio segments...' 
+                        {dubbing.step === 'stitching'
+                          ? dubbing.progressLabel || 'Stitching audio segments...'
                           : 'Waiting for TTS output'}
                       </p>
                     </div>
                     <div>
-                      <span 
-                        className="btn-p" 
+                      <span
+                        className="btn-p"
                         onClick={dubbing.stitchAudio}
                         style={{ opacity: dubbing.step === 'stitching' ? 0.5 : 1, pointerEvents: dubbing.step === 'stitching' ? 'none' : 'auto' }}
                       >
@@ -564,25 +654,25 @@ export function DubbingPage() {
                     </div>
 
                     <div style={{ marginTop: 'auto', display: 'flex', gap: '12px', alignItems: 'center' }}>
-                      <span className="btn-p" onClick={() => setCur(6)}>Continue to Export</span>
+                      <span className="btn-p" onClick={() => setCur(5)}>Continue to Export</span>
                     </div>
                   </>
                 )}
               </div>
             </div>
 
-            {/* Stage 6: Add audio */}
-            <div 
-              className="slide" 
-              style={getSlideStyle(6)}
-              onClick={() => handleSlideClick(6)}
+            {/* Stage 5: Add audio */}
+            <div
+              className="slide"
+              style={getSlideStyle(5)}
+              onClick={() => handleSlideClick(5)}
             >
               <div className="card">
                 <div className="card-head">
                   <div className="card-icon" style={{ background: '#EAF3DE' }}>
                     <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                      <rect x="2" y="3" width="12" height="10" rx="1.5" stroke="#3B6D11" strokeWidth="1.2" fill="none"/>
-                      <path d="M5 8h6M8 5v6" stroke="#3B6D11" strokeWidth="1.2" strokeLinecap="round"/>
+                      <rect x="2" y="3" width="12" height="10" rx="1.5" stroke="#3B6D11" strokeWidth="1.2" fill="none" />
+                      <path d="M5 8h6M8 5v6" stroke="#3B6D11" strokeWidth="1.2" strokeLinecap="round" />
                     </svg>
                   </div>
                   <div>
@@ -591,13 +681,13 @@ export function DubbingPage() {
                   </div>
                 </div>
                 <div className="card-desc">Merge the final voiceover with your video and export the dubbed file in your preferred format.</div>
-                
+
                 {dubbing.step === 'done' && dubbing.resultVideoUrl ? (
                   <>
                     <div style={{ flex: 1, minHeight: 0, marginBottom: '1rem', background: '#000', borderRadius: '12px', overflow: 'hidden', display: 'flex', justifyContent: 'center' }}>
                       <video src={dubbing.resultVideoUrl} controls style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} />
                     </div>
-                    
+
                     <div style={{ marginTop: 'auto', display: 'flex', gap: '12px' }}>
                       <a href={dubbing.resultVideoUrl} download="dubbed_video.mp4" className="btn-p" style={{ flex: 1, textDecoration: 'none' }}>Download MP4</a>
                       <span className="btn-g" onClick={() => dubbing.reset()} style={{ fontSize: '13px' }}>Start Over</span>
@@ -607,14 +697,14 @@ export function DubbingPage() {
                   <>
                     <div style={{ marginBottom: '1.5rem', opacity: dubbing.step !== 'muxing' ? 0.5 : 1 }}>
                       <div className="pbar">
-                        <div 
-                          className="pfill" 
+                        <div
+                          className="pfill"
                           style={{ width: `${dubbing.step === 'muxing' ? dubbing.progress : 0}%` }}
                         ></div>
                       </div>
                       <p className="plabel">
-                        {dubbing.step === 'muxing' 
-                          ? dubbing.progressLabel || 'Creating final video...' 
+                        {dubbing.step === 'muxing'
+                          ? dubbing.progressLabel || 'Creating final video...'
                           : 'Ready to export'}
                       </p>
                     </div>
@@ -628,8 +718,8 @@ export function DubbingPage() {
                           <option>Mute original</option>
                         </select>
                       </div>
-                      <span 
-                        className="btn-p" 
+                      <span
+                        className="btn-p"
                         onClick={dubbing.muxVideo}
                         style={{ opacity: dubbing.step === 'muxing' ? 0.5 : 1, pointerEvents: dubbing.step === 'muxing' ? 'none' : 'auto' }}
                       >

@@ -37,6 +37,9 @@ export function useDubbing() {
   const [extractedAudioUrl, setExtractedAudioUrl] = useState<string | null>(null);
   const [stitchedAudioUrl, setStitchedAudioUrl] = useState<string | null>(null);
 
+  const [isTranslating, setIsTranslating] = useState(false);
+  const [translationProgress, setTranslationProgress] = useState(0);
+
   const videoBlobRef = useRef<Blob | null>(null);
   const audioBlobRef = useRef<Blob | null>(null);
   const stitchedAudioBlobRef = useRef<Blob | null>(null);
@@ -59,6 +62,8 @@ export function useDubbing() {
     setOriginalVideoUrl(null);
     setExtractedAudioUrl(null);
     setStitchedAudioUrl(null);
+    setIsTranslating(false);
+    setTranslationProgress(0);
     videoBlobRef.current = null;
     audioBlobRef.current = null;
     stitchedAudioBlobRef.current = null;
@@ -66,7 +71,7 @@ export function useDubbing() {
   }, [resultVideoUrl, originalVideoUrl, extractedAudioUrl, stitchedAudioUrl]);
 
   // ─── Step 1: Upload video & extract audio ───
-  const uploadAndExtract = useCallback(async (videoFile: File) => {
+  const uploadAndExtract = useCallback(async (videoFile: File, audioFile?: File) => {
     setError(null);
 
     try {
@@ -78,14 +83,23 @@ export function useDubbing() {
 
       videoDurationRef.current = await ffmpeg.getVideoDuration(videoFile);
 
-      // Extract audio
-      setStep('extracting');
-      setProgressLabel('Extracting audio from video...');
-      setProgress(0);
+      if (audioFile) {
+        setStep('extracting');
+        setProgressLabel('Processing custom audio...');
+        setProgress(0);
+        
+        audioBlobRef.current = audioFile;
+        setExtractedAudioUrl(URL.createObjectURL(audioFile));
+      } else {
+        // Extract audio
+        setStep('extracting');
+        setProgressLabel('Extracting audio from video...');
+        setProgress(0);
 
-      const audioBlob = await ffmpeg.extractAudio(videoFile);
-      audioBlobRef.current = audioBlob;
-      setExtractedAudioUrl(URL.createObjectURL(audioBlob));
+        const audioBlob = await ffmpeg.extractAudio(videoFile);
+        audioBlobRef.current = audioBlob;
+        setExtractedAudioUrl(URL.createObjectURL(audioBlob));
+      }
 
       // Pre-init Whisper in background while user reviews audio
       whisper.init();
@@ -93,7 +107,7 @@ export function useDubbing() {
       // PAUSE: let user review
       setStep('review_audio');
       setProgress(100);
-      setProgressLabel('Audio extracted! Review before continuing.');
+      setProgressLabel(audioFile ? 'Audio processing complete! Review before continuing.' : 'Audio extracted! Review before continuing.');
     } catch (err: any) {
       setError(err.message || 'Failed to extract audio');
       setStep('idle');
@@ -302,6 +316,57 @@ export function useDubbing() {
     setProgressLabel('');
   }, []);
 
+  // Replace audio manually
+  const replaceAudio = useCallback((newAudioFile: File) => {
+    audioBlobRef.current = newAudioFile;
+    if (extractedAudioUrl) {
+      URL.revokeObjectURL(extractedAudioUrl);
+    }
+    setExtractedAudioUrl(URL.createObjectURL(newAudioFile));
+    // Reset pipeline back to review phase
+    setSegments([]);
+    setStep('review_audio');
+    setProgress(100);
+    setProgressLabel('Audio replaced! Review before continuing.');
+    setError(null);
+  }, [extractedAudioUrl]);
+
+  // Auto-translate using Google Translate
+  const autoTranslate = useCallback(async (targetLang: string) => {
+    if (segments.length === 0) return;
+    setIsTranslating(true);
+    setTranslationProgress(0);
+    setError(null);
+
+    const updatedSegments = [...segments];
+
+    try {
+      for (let i = 0; i < updatedSegments.length; i++) {
+        const seg = updatedSegments[i];
+        if (!seg.text.trim()) continue;
+
+        const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=${targetLang}&dt=t&q=${encodeURIComponent(seg.text)}`;
+        const res = await fetch(url);
+        if (!res.ok) throw new Error('Translation API failed');
+        const data = await res.json();
+        const translated = data[0].map((x: any) => x[0]).join('');
+
+        updatedSegments[i] = { ...seg, translatedText: translated };
+        setTranslationProgress(Math.round(((i + 1) / updatedSegments.length) * 100));
+        
+        // Update state progressively so UI reflects changes immediately
+        setSegments([...updatedSegments]);
+
+        // slight delay to prevent absolute hammering rate limit if too many small segments
+        await new Promise(r => setTimeout(r, 100)); 
+      }
+    } catch (err: any) {
+      setError('Translation failed: ' + err.message);
+    } finally {
+      setIsTranslating(false);
+    }
+  }, [segments]);
+
   return {
     step,
     segments,
@@ -319,6 +384,9 @@ export function useDubbing() {
     ffmpegProgress: ffmpeg.progress,
     ffmpegLoading: ffmpeg.isLoading,
     initWhisper: whisper.init,
+    isTranslating,
+    translationProgress,
+    autoTranslate,
     uploadAndExtract,
     startTranscription,
     synthesizeAll,
@@ -329,6 +397,7 @@ export function useDubbing() {
     removeSegment,
     addSegment,
     backToEditing,
+    replaceAudio,
     reset,
   };
 }

@@ -208,6 +208,45 @@ export function useFFmpeg() {
     });
   }, []);
 
+  const convertMedia = useCallback(async (
+    inputFile: File | Blob,
+    ffmpegArgs: string[],
+    outputFilename: string,
+    outputMimeType: string = 'video/mp4'
+  ): Promise<Blob> => {
+    setIsLoading(true);
+    setProgress(0);
+    setError(null);
+
+    try {
+      const ffmpeg = await getFFmpeg();
+      const ext = inputFile instanceof File ? inputFile.name.split('.').pop() || 'input' : 'input';
+      const inputName = `convert_input.${ext}`;
+
+      await ffmpeg.writeFile(inputName, await fetchFile(inputFile));
+
+      // Replace the placeholder input name in args
+      const resolvedArgs = ffmpegArgs.map(a => a === '__INPUT__' ? inputName : a);
+
+      await ffmpeg.exec(resolvedArgs);
+
+      const data = await ffmpeg.readFile(outputFilename);
+      const blob = new Blob([data as any], { type: outputMimeType });
+
+      // Cleanup
+      await ffmpeg.deleteFile(inputName);
+      try { await ffmpeg.deleteFile(outputFilename); } catch {}
+
+      setIsLoading(false);
+      setProgress(100);
+      return blob;
+    } catch (err: any) {
+      setIsLoading(false);
+      setError(err.message || 'Conversion failed');
+      throw err;
+    }
+  }, [getFFmpeg]);
+
   return {
     isLoading,
     progress,
@@ -216,5 +255,7 @@ export function useFFmpeg() {
     stitchSegments,
     muxAudioVideo,
     getVideoDuration,
+    convertMedia,
   };
 }
+
