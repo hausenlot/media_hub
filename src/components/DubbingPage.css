@@ -1,0 +1,244 @@
+.dubbing-pipeline-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100vw;
+  height: 100vh;
+  margin: 0;
+  padding: 0;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+.dubbing-pipeline-container * {
+  box-sizing: border-box;
+}
+
+.shell {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  user-select: none;
+  background: transparent;
+}
+
+
+
+/* Pips */
+.shell .pip-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 1.5rem;
+  z-index: 20;
+  position: absolute;
+  bottom: 2rem;
+  left: 0;
+  width: 100%;
+}
+.shell .pip {
+  height: 6px;
+  border-radius: 3px;
+  background: rgba(255,255,255,0.2);
+  transition: all 0.4s cubic-bezier(0.2, 0.8, 0.2, 1);
+  cursor: pointer;
+  width: 24px;
+}
+.shell .pip.done   { background: #4ade80; }
+.shell .pip.active { background: #818cf8; width: 48px; box-shadow: 0 0 12px rgba(129, 140, 248, 0.5); }
+
+/* Slide viewport - CAROUSEL */
+.shell .viewport {
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  perspective: 1500px;
+  z-index: 10;
+}
+
+.shell .track {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transform-style: preserve-3d;
+}
+
+.shell .slide {
+  position: absolute;
+  width: 500px;
+  height: 640px;
+  max-width: 90vw;
+  max-height: 80vh;
+  transition: transform 0.6s cubic-bezier(0.2, 0.8, 0.2, 1), opacity 0.6s ease, filter 0.6s ease;
+  will-change: transform, opacity, filter;
+  border-radius: 24px;
+}
+
+/* Card */
+.shell .card {
+  background: #fff;
+  border: 1px solid rgba(255,255,255,0.8);
+  border-radius: 24px;
+  padding: 2.5rem;
+  text-align: left;
+  box-shadow: 0 30px 60px -15px rgba(0,0,0,0.3);
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.shell .card-head {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 2rem;
+}
+.shell .card-icon {
+  width: 60px; height: 60px;
+  border-radius: 16px;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.shell .card-icon svg {
+  width: 28px;
+  height: 28px;
+}
+.shell .card-title { font-size: 24px; font-weight: 700; color: #111; line-height: 1.2; letter-spacing: -0.02em; }
+.shell .card-sub   { font-size: 15px; color: #666; margin-top: 4px; line-height: 1.2; font-weight: 500; }
+.shell .card-desc  { font-size: 16px; color: #444; line-height: 1.6; margin-bottom: 2.5rem; flex-grow: 1; }
+
+/* Upload zone */
+.shell .upload-zone {
+  border: 2px dashed rgba(0,0,0,0.15);
+  border-radius: 12px;
+  padding: 3rem 2rem;
+  text-align: center;
+  margin-bottom: 1.5rem;
+  cursor: pointer;
+  background: #fafafa;
+  transition: background 0.2s, border-color 0.2s;
+}
+.shell .upload-zone:hover {
+  background: #f0f0f0;
+  border-color: rgba(0,0,0,0.3);
+}
+.shell .upload-zone .uz-title { font-size: 15px; font-weight: 600; color: #222; display: block; margin-bottom: 8px; }
+.shell .upload-zone .uz-sub   { font-size: 13px; color: #777; }
+.shell .upload-icon { width: 36px; height: 36px; margin: 0 auto 12px; opacity: 0.4; display: block; }
+
+/* Select row */
+.shell .row { display: flex; gap: 12px; margin-bottom: 1.5rem; }
+.shell .sel {
+  flex: 1;
+  font-size: 14px;
+  font-weight: 500;
+  padding: 10px 14px;
+  border-radius: 10px;
+  border: 1px solid rgba(0,0,0,0.12);
+  background: #fcfcfc;
+  color: #111;
+  outline: none;
+  cursor: pointer;
+}
+
+/* Chips */
+.shell .chips { display: flex; gap: 8px; flex-wrap: wrap; margin-top: auto; }
+.shell .chip {
+  font-size: 12px;
+  padding: 6px 14px;
+  border-radius: 20px;
+  border: 1px solid rgba(0,0,0,0.08);
+  color: #555;
+  background: #f5f5f5;
+  font-weight: 600;
+}
+
+/* Progress bar */
+.shell .pbar { height: 8px; background: #eee; border-radius: 4px; margin-bottom: 12px; overflow: hidden; position: relative; }
+.shell .pfill { height: 100%; border-radius: 4px; background: #534AB7; width: 0%; transition: width 0.3s; }
+.shell .pfill.indeterminate {
+  width: 40% !important;
+  animation: pbar-indeterminate 1.5s ease-in-out infinite;
+}
+@keyframes pbar-indeterminate {
+  0% { margin-left: -40%; width: 40%; }
+  50% { margin-left: 20%; width: 60%; }
+  100% { margin-left: 100%; width: 40%; }
+}
+.shell .plabel { font-size: 13px; font-weight: 500; color: #777; margin-bottom: 1.5rem; }
+
+/* Buttons */
+.shell .btn-p {
+  display: inline-block;
+  font-size: 14px; font-weight: 600;
+  padding: 10px 20px;
+  border-radius: 10px;
+  border: 1px solid #534AB7;
+  color: #534AB7;
+  background: #EEEDFE;
+  cursor: pointer;
+  margin-right: 12px;
+  transition: opacity 0.2s;
+  text-align: center;
+}
+.shell .btn-p:hover { opacity: 0.8; }
+.shell .btn-g {
+  display: inline-block;
+  font-size: 14px; font-weight: 600;
+  padding: 10px 20px;
+  border-radius: 10px;
+  border: 1px solid rgba(0,0,0,0.15);
+  color: #444;
+  background: transparent;
+  cursor: pointer;
+  transition: background 0.2s;
+  text-align: center;
+}
+.shell .btn-g:hover { background: #f0f0ee; }
+
+/* Next button row removed from bottom of cards */
+.shell svg {
+  vertical-align: middle;
+}
+
+/* Transcript Segments List */
+.shell .segments-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  overflow-y: auto;
+  flex-grow: 1;
+  margin-bottom: 1rem;
+  padding-right: 0.5rem;
+}
+.shell .segment-item {
+  background: rgba(0,0,0,0.03);
+  border: 1px solid rgba(0,0,0,0.08);
+  border-radius: 12px;
+  padding: 0.8rem;
+}
+.shell .segment-header {
+  display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;
+}
+.shell .segment-time {
+  font-family: monospace; font-size: 12px; color: #777;
+}
+.shell .segment-text {
+  width: 100%; border: none; background: transparent; resize: none;
+  font-family: inherit; font-size: 14px; color: #333; outline: none; line-height: 1.4;
+}
+.shell .segments-list::-webkit-scrollbar { width: 4px; }
+.shell .segments-list::-webkit-scrollbar-track { background: transparent; }
+.shell .segments-list::-webkit-scrollbar-thumb { background: #ccc; border-radius: 2px; }

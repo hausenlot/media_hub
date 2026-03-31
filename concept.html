@@ -1,0 +1,538 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Video pipeline</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #f5f5f3;
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      min-height: 100vh;
+      padding: 2rem 1rem;
+    }
+
+    .shell {
+      width: 100%;
+      max-width: 480px;
+      background: #ffffff;
+      border-radius: 16px;
+      border: 0.5px solid rgba(0,0,0,0.1);
+      padding: 1.5rem 0 2rem;
+      user-select: none;
+    }
+
+    /* Top bar */
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 1.5rem 0.75rem;
+    }
+    .topbar-left { display: flex; flex-direction: column; gap: 2px; }
+    .stage-label-main { font-size: 15px; font-weight: 500; color: #111; }
+    .stage-counter { font-size: 12px; color: #999; }
+
+    .nav-btns { display: flex; gap: 8px; }
+    .nav-btn {
+      width: 32px; height: 32px;
+      border-radius: 8px;
+      border: 0.5px solid rgba(0,0,0,0.15);
+      background: transparent;
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      transition: background 0.12s;
+      color: #333;
+    }
+    .nav-btn:hover { background: #f0f0ee; }
+    .nav-btn:disabled { opacity: 0.3; cursor: default; }
+
+    /* Pips */
+    .pip-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 0 1.5rem 0.5rem;
+      overflow-x: auto;
+      scrollbar-width: none;
+    }
+    .pip-row::-webkit-scrollbar { display: none; }
+    .pip {
+      height: 3px;
+      border-radius: 2px;
+      background: rgba(0,0,0,0.12);
+      transition: all 0.25s;
+      cursor: pointer;
+      flex-shrink: 0;
+      width: 14px;
+    }
+    .pip.done   { background: #1D9E75; }
+    .pip.active { background: #534AB7; width: 28px; }
+
+    /* Slide viewport */
+    .viewport { overflow: hidden; }
+    .track {
+      display: flex;
+      transition: transform 0.32s cubic-bezier(0.4, 0, 0.2, 1);
+      will-change: transform;
+    }
+    .slide { flex-shrink: 0; width: 100%; padding: 1rem 1.5rem 0; }
+
+    /* Card */
+    .card {
+      background: #fff;
+      border: 0.5px solid rgba(0,0,0,0.1);
+      border-radius: 12px;
+      padding: 1.25rem;
+    }
+    .card-head {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 0.75rem;
+    }
+    .card-icon {
+      width: 36px; height: 36px;
+      border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+    }
+    .card-title { font-size: 14px; font-weight: 500; color: #111; }
+    .card-sub   { font-size: 12px; color: #999; margin-top: 1px; }
+    .card-desc  { font-size: 13px; color: #555; line-height: 1.6; margin-bottom: 1rem; }
+
+    /* Upload zone */
+    .upload-zone {
+      border: 1px dashed rgba(0,0,0,0.18);
+      border-radius: 8px;
+      padding: 1.5rem;
+      text-align: center;
+      margin-bottom: 0.875rem;
+    }
+    .upload-zone .uz-title { font-size: 13px; font-weight: 500; color: #444; display: block; margin-bottom: 4px; }
+    .upload-zone .uz-sub   { font-size: 12px; color: #999; }
+    .upload-icon { width: 28px; height: 28px; margin: 0 auto 6px; opacity: 0.35; display: block; }
+
+    /* Select row */
+    .row { display: flex; gap: 8px; margin-bottom: 0.75rem; }
+    .sel {
+      flex: 1;
+      font-size: 12px;
+      padding: 6px 10px;
+      border-radius: 8px;
+      border: 0.5px solid rgba(0,0,0,0.15);
+      background: #f9f9f7;
+      color: #111;
+    }
+
+    /* Chips */
+    .chips { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 0.75rem; }
+    .chip {
+      font-size: 11px;
+      padding: 3px 9px;
+      border-radius: 20px;
+      border: 0.5px solid rgba(0,0,0,0.12);
+      color: #666;
+      background: #f5f5f3;
+    }
+
+    /* Progress bar */
+    .pbar { height: 4px; background: #eee; border-radius: 2px; margin-bottom: 6px; overflow: hidden; }
+    .pfill { height: 100%; border-radius: 2px; background: #534AB7; width: 0%; }
+    .plabel { font-size: 11px; color: #999; margin-bottom: 0.875rem; }
+
+    /* Buttons */
+    .btn-p {
+      display: inline-block;
+      font-size: 12px; font-weight: 500;
+      padding: 7px 16px;
+      border-radius: 8px;
+      border: 0.5px solid #534AB7;
+      color: #534AB7;
+      background: #EEEDFE;
+      cursor: pointer;
+      margin-right: 6px;
+    }
+    .btn-g {
+      display: inline-block;
+      font-size: 12px; font-weight: 500;
+      padding: 7px 16px;
+      border-radius: 8px;
+      border: 0.5px solid rgba(0,0,0,0.15);
+      color: #666;
+      background: transparent;
+      cursor: pointer;
+    }
+
+    /* Next button row */
+    .next-btn-row {
+      display: flex;
+      justify-content: flex-end;
+      padding: 0.875rem 1.5rem 0;
+    }
+    .next-full {
+      padding: 9px 20px;
+      font-size: 13px; font-weight: 500;
+      border-radius: 8px;
+      border: 0.5px solid #534AB7;
+      color: #534AB7;
+      background: #EEEDFE;
+      cursor: pointer;
+      display: flex; align-items: center; gap: 6px;
+    }
+    .next-full:disabled { opacity: 0.35; cursor: default; }
+  </style>
+</head>
+<body>
+
+<div class="shell">
+
+  <!-- Top bar -->
+  <div class="topbar">
+    <div class="topbar-left">
+      <span class="stage-label-main" id="stageName">Upload video</span>
+      <span class="stage-counter" id="stageCounter">Step 1 of 7</span>
+    </div>
+    <div class="nav-btns">
+      <button class="nav-btn" id="btnPrev" disabled onclick="go(-1)">
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+          <path d="M9 11L5 7l4-4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </button>
+      <button class="nav-btn" id="btnNext" onclick="go(1)">
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+          <path d="M5 3l4 4-4 4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </button>
+    </div>
+  </div>
+
+  <!-- Pip indicators -->
+  <div class="pip-row" id="pipRow"></div>
+
+  <!-- Slides -->
+  <div class="viewport" id="vp">
+    <div class="track" id="track">
+
+      <!-- Stage 1: Upload video -->
+      <div class="slide">
+        <div class="card">
+          <div class="card-head">
+            <div class="card-icon" style="background:#EEEDFE">
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                <rect x="2" y="3" width="12" height="10" rx="1.5" stroke="#534AB7" stroke-width="1.2" fill="none"/>
+                <path d="M6 6l4 2-4 2V6z" fill="#534AB7"/>
+              </svg>
+            </div>
+            <div>
+              <div class="card-title">Upload video</div>
+              <div class="card-sub">Source file input</div>
+            </div>
+          </div>
+          <div class="card-desc">Upload the source video you want to dub. We'll extract audio and process it through the pipeline.</div>
+          <div class="upload-zone">
+            <svg class="upload-icon" viewBox="0 0 28 28" fill="none">
+              <path d="M14 18V10M10 14l4-4 4 4" stroke="#333" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+              <rect x="3" y="3" width="22" height="22" rx="4" stroke="#333" stroke-width="1.2"/>
+            </svg>
+            <span class="uz-title">Drop video file here</span>
+            <span class="uz-sub">MP4, MOV, AVI, MKV · Max 2 GB</span>
+          </div>
+          <span class="btn-p">Browse files</span>
+          <div class="chips">
+            <span class="chip">MP4</span>
+            <span class="chip">MOV</span>
+            <span class="chip">AVI</span>
+            <span class="chip">MKV</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Stage 2: Audio extraction -->
+      <div class="slide">
+        <div class="card">
+          <div class="card-head">
+            <div class="card-icon" style="background:#E1F5EE">
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                <path d="M8 2v12M4 5v6M12 5v6M2 8h2M12 8h2" stroke="#0F6E56" stroke-width="1.2" stroke-linecap="round"/>
+              </svg>
+            </div>
+            <div>
+              <div class="card-title">Audio extraction</div>
+              <div class="card-sub">Strip audio track</div>
+            </div>
+          </div>
+          <div class="card-desc">Isolate the original audio track from your video. This becomes the source for transcription.</div>
+          <div class="pbar"><div class="pfill"></div></div>
+          <p class="plabel">Ready to extract</p>
+          <span class="btn-p">Extract audio</span>
+          <span class="btn-g">Preview waveform</span>
+          <div class="chips">
+            <span class="chip">WAV output</span>
+            <span class="chip">Stereo / mono</span>
+            <span class="chip">Auto-trim</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Stage 3: Speech to text -->
+      <div class="slide">
+        <div class="card">
+          <div class="card-head">
+            <div class="card-icon" style="background:#E6F1FB">
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                <path d="M3 5h7M3 8h5M3 11h8" stroke="#185FA5" stroke-width="1.2" stroke-linecap="round"/>
+                <path d="M12 7v5M10 10l2 2 2-2" stroke="#185FA5" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </div>
+            <div>
+              <div class="card-title">Speech to text</div>
+              <div class="card-sub">Transcribe audio</div>
+            </div>
+          </div>
+          <div class="card-desc">Transcribe the extracted audio into a timestamped text transcript. Auto-detect or select the source language.</div>
+          <div class="row">
+            <select class="sel">
+              <option>Auto-detect language</option>
+              <option>English</option>
+              <option>Filipino</option>
+              <option>Japanese</option>
+              <option>Spanish</option>
+            </select>
+          </div>
+          <span class="btn-p">Run transcription</span>
+          <span class="btn-g">Review result</span>
+          <div class="chips">
+            <span class="chip">Timestamped</span>
+            <span class="chip">Speaker labels</span>
+            <span class="chip">Editable</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Stage 4: Translate -->
+      <div class="slide">
+        <div class="card">
+          <div class="card-head">
+            <div class="card-icon" style="background:#FAEEDA">
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                <path d="M2 8h4M10 8h4M6 5l-2 3 2 3M10 5l2 3-2 3" stroke="#854F0B" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </div>
+            <div>
+              <div class="card-title">Translate</div>
+              <div class="card-sub">Target language</div>
+            </div>
+          </div>
+          <div class="card-desc">Translate the transcript to your target language while preserving timing markers for sync.</div>
+          <div class="row">
+            <select class="sel">
+              <option>From: English (detected)</option>
+            </select>
+            <select class="sel">
+              <option>To: Filipino</option>
+              <option>To: Japanese</option>
+              <option>To: Spanish</option>
+              <option>To: French</option>
+            </select>
+          </div>
+          <span class="btn-p">Translate</span>
+          <span class="btn-g">Edit manually</span>
+          <div class="chips">
+            <span class="chip">100+ languages</span>
+            <span class="chip">Timing preserved</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Stage 5: Text to speech -->
+      <div class="slide">
+        <div class="card">
+          <div class="card-head">
+            <div class="card-icon" style="background:#FAECE7">
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                <circle cx="8" cy="7" r="3" stroke="#993C1D" stroke-width="1.2" fill="none"/>
+                <path d="M5 12.5c0-1.66 1.34-3 3-3s3 1.34 3 3" stroke="#993C1D" stroke-width="1.2" stroke-linecap="round"/>
+              </svg>
+            </div>
+            <div>
+              <div class="card-title">Text to speech</div>
+              <div class="card-sub">Generate voiceover</div>
+            </div>
+          </div>
+          <div class="card-desc">Convert the translated text into a natural-sounding voiceover using your chosen voice model.</div>
+          <div class="row">
+            <select class="sel">
+              <option>Neutral female</option>
+              <option>Neutral male</option>
+              <option>Expressive</option>
+              <option>Clone original</option>
+            </select>
+          </div>
+          <span class="btn-p">Generate voice</span>
+          <span class="btn-g">Preview audio</span>
+          <div class="chips">
+            <span class="chip">Voice clone</span>
+            <span class="chip">Speed control</span>
+            <span class="chip">Pitch adjust</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Stage 6: Stitch -->
+      <div class="slide">
+        <div class="card">
+          <div class="card-head">
+            <div class="card-icon" style="background:#FBEAF0">
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                <path d="M2 8h3l2-4 2 8 2-4h3" stroke="#993556" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+              </svg>
+            </div>
+            <div>
+              <div class="card-title">Stitch</div>
+              <div class="card-sub">Align and sync</div>
+            </div>
+          </div>
+          <div class="card-desc">Align the voiceover segments to the video timeline. Auto-sync or fine-tune offsets manually.</div>
+          <div class="pbar"><div class="pfill"></div></div>
+          <p class="plabel">Waiting for TTS output</p>
+          <span class="btn-p">Auto-stitch</span>
+          <span class="btn-g">Timeline editor</span>
+          <div class="chips">
+            <span class="chip">Auto-sync</span>
+            <span class="chip">Manual offset</span>
+            <span class="chip">Silence padding</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Stage 7: Add audio -->
+      <div class="slide">
+        <div class="card">
+          <div class="card-head">
+            <div class="card-icon" style="background:#EAF3DE">
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                <rect x="2" y="3" width="12" height="10" rx="1.5" stroke="#3B6D11" stroke-width="1.2" fill="none"/>
+                <path d="M5 8h6M8 5v6" stroke="#3B6D11" stroke-width="1.2" stroke-linecap="round"/>
+              </svg>
+            </div>
+            <div>
+              <div class="card-title">Add audio</div>
+              <div class="card-sub">Merge and export</div>
+            </div>
+          </div>
+          <div class="card-desc">Merge the final voiceover with your video and export the dubbed file in your preferred format.</div>
+          <div class="row">
+            <select class="sel">
+              <option>MP4 (H.264)</option>
+              <option>MOV</option>
+              <option>WebM</option>
+            </select>
+            <select class="sel">
+              <option>Mute original</option>
+              <option>Mix original + dubbed</option>
+            </select>
+          </div>
+          <span class="btn-p">Export video</span>
+          <span class="btn-g">Preview</span>
+          <div class="chips">
+            <span class="chip">Subtitles option</span>
+            <span class="chip">Volume mix</span>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Next button -->
+  <div class="next-btn-row">
+    <button class="next-full" id="nextFull" onclick="go(1)">
+      Next
+      <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+        <path d="M5 3l4 4-4 4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    </button>
+  </div>
+
+</div>
+
+<script>
+  const labels = [
+    "Upload video",
+    "Audio extraction",
+    "Speech to text",
+    "Translate",
+    "Text to speech",
+    "Stitch",
+    "Add audio"
+  ];
+
+  const total     = labels.length;
+  let cur         = 0;
+  let startX      = 0;
+  let mouseDown   = false;
+
+  const track      = document.getElementById('track');
+  const pipRow     = document.getElementById('pipRow');
+  const btnPrev    = document.getElementById('btnPrev');
+  const btnNext    = document.getElementById('btnNext');
+  const nextFull   = document.getElementById('nextFull');
+  const stageName  = document.getElementById('stageName');
+  const stageCounter = document.getElementById('stageCounter');
+  const vp         = document.getElementById('vp');
+
+  function buildPips() {
+    pipRow.innerHTML = '';
+    for (let i = 0; i < total; i++) {
+      const p = document.createElement('div');
+      p.className = 'pip';
+      if (i < cur)      p.classList.add('done');
+      else if (i === cur) p.classList.add('active');
+      p.onclick = () => goTo(i);
+      pipRow.appendChild(p);
+    }
+  }
+
+  function render() {
+    track.style.transform = `translateX(-${cur * 100}%)`;
+    stageName.textContent    = labels[cur];
+    stageCounter.textContent = `Step ${cur + 1} of ${total}`;
+    btnPrev.disabled  = cur === 0;
+    btnNext.disabled  = cur === total - 1;
+    nextFull.disabled = cur === total - 1;
+    nextFull.innerHTML = cur === total - 1
+      ? 'Done'
+      : `Next <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M5 3l4 4-4 4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+    buildPips();
+  }
+
+  function go(dir)    { goTo(cur + dir); }
+  function goTo(i)    { if (i >= 0 && i < total) { cur = i; render(); } }
+
+  // Touch swipe
+  vp.addEventListener('touchstart', e => { startX = e.touches[0].clientX; }, { passive: true });
+  vp.addEventListener('touchend',   e => {
+    const dx = e.changedTouches[0].clientX - startX;
+    if (Math.abs(dx) > 40) go(dx < 0 ? 1 : -1);
+  }, { passive: true });
+
+  // Mouse drag
+  vp.addEventListener('mousedown', e => { startX = e.clientX; mouseDown = true; });
+  vp.addEventListener('mouseup',   e => {
+    if (!mouseDown) return;
+    mouseDown = false;
+    const dx = e.clientX - startX;
+    if (Math.abs(dx) > 40) go(dx < 0 ? 1 : -1);
+  });
+
+  render();
+</script>
+
+</body>
+</html>
